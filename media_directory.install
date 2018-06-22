@@ -1,0 +1,29 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the media_directory module.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function media_directory_install() {
+  // Create a default vocabulary for our use-case.
+  $vocabulary_storage = \Drupal::entityTypeManager()->getStorage('taxonomy_vocabulary');
+  $vocabulary = $vocabulary_storage->loadByProperties(['vid' => 'media_directory_tree']);
+  if (!empty($vocabulary)) {
+    return;
+  }
+  $vocabulary = $vocabulary_storage->create([
+    'vid' => 'media_directory_tree',
+    'name' => t('Media Directory Tree'),
+  ]);
+  $vocabulary->save();
+  // Create the "root" term as well.
+  $term = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->create([
+    'name' => 'root',
+    'vid' => $vocabulary->id(),
+  ]);
+  $term->save();
+}

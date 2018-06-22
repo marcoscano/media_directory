@@ -1,0 +1,136 @@
+<?php
+
+/**
+ * @file
+ * Contains media_directory hooks.
+ */
+
+use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Session\AccountInterface;
+
+/**
+ * Helper to retrieve a key-value list of vocabularies from config.
+ *
+ * @return array
+ *   An associative array where keys are media type machine names, and values
+ *   are the vocabularies machine names, as defined in the settings form.
+ *
+ * @see \Drupal\media_directory\Form\MediaFoldersSettingsForm
+ */
+function media_directory_get_vocabulary_mapping() {
+  $records = \Drupal::config('media_directory.settings')->get('media_directory_vocabulary_mapping') ?: [];
+  $output = [];
+  foreach ($records as $record) {
+    list($key, $value) = explode(":", $record);
+    $output[$key] = $value;
+  }
+  return $output;
+}
+
+/**
+ * Implements hook_ENTITY_TYPE_access().
+ */
+function media_directory_taxonomy_term_access(EntityInterface $entity, $operation, AccountInterface $account) {
+  // Prevent deletion of the "root" term if the vocabulary is being used in any
+  // Media Type directory tree.
+  if ($operation != 'delete') {
+    return AccessResult::neutral();
+  }
+
+  /** @var \Drupal\taxonomy\TermInterface $entity */
+  $mapping = media_directory_get_vocabulary_mapping();
+  if ($entity->getName() === 'root' && in_array($entity->bundle(), $mapping)) {
+    return AccessResult::forbidden('Root terms from vocabularies in use by media types cannot be deleted.');
+  }
+
+  return AccessResult::neutral();
+}
+
+/**
+ * Implements hook_ENTITY_TYPE_access().
+ */
+function media_field_config_access(EntityInterface $entity, $operation, AccountInterface $account) {
+  // Prevent deletion of the "media_directory" field if the Media type is
+  // configured to use the media directory functionality.
+  // @todo If we make the field name configurable, this should account for that.
+  if ($operation != 'delete') {
+    return AccessResult::neutral();
+  }
+  /** @var \Drupal\field\FieldConfigInterface $entity */
+  if ($entity->getName() != 'media_directory' || $entity->getFieldStorageDefinition()->getTargetEntityTypeId() != 'media') {
+    return AccessResult::neutral();
+  }
+
+  $mapping = media_directory_get_vocabulary_mapping();
+  if (!empty($mapping[$entity->getTargetBundle()])) {
+    return AccessResult::forbidden('Media Directory fields being used cannot be deleted.');
+  }
+
+  return AccessResult::neutral();
+}
+
+/**
+ * Implements hook_ENTITY_TYPE_presave().
+ */
+function media_directory_media_presave(EntityInterface $media) {
+  /** @var \Drupal\media\MediaInterface $media */
+  // Ensure all media entities mapped to a directory-vocab have at least the
+  // root taxonomy term, and all tree hierarchy is saved as well. This code
+  // could live at the widget, but it is deliberately here in order to make the
+  // system more robust. Entities being created programmatically or not using
+  // our widget wouldn't get through this code if it was part of the widget
+  // only.
+  $mapping = media_directory_get_vocabulary_mapping();
+  if (empty($mapping[$media->bundle()])) {
+    return;
+  }
+  $vocab_name = $mapping[$media->bundle()];
+  // For now we always use the same "media_directory" field.
+  // @todo Maybe we want to make the field name configurable at some point?
+  if (!$media->hasField('media_directory')) {
+    \Drupal::logger('media_directory')->error('Saving mapped media item from type @type with no taxonomy field (media_directory).', [
+      '@type' => $media->bundle(),
+    ]);
+    return;
+  }
+  // The field config and the mapping must match.
+  $target_vocabs = $media->getFieldDefinition('media_directory')->getSetting('handler_settings')['target_bundles'];
+  if (count($target_vocabs) > 1 || !in_array($vocab_name, $target_vocabs)) {
+    \Drupal::logger('media_directory')->error('Saving mapped media item from type @type with a misconfigured taxonomy field (media_directory).', [
+      '@type' => $media->bundle(),
+    ]);
+    return;
+  }
+  /** @var \Drupal\taxonomy\TermStorageInterface $taxonomy_storage */
+  $taxonomy_storage = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
+  // If the field is empty, we will set it to the root level.
+  if ($media->get('media_directory')->isEmpty()) {
+    $root_term = $taxonomy_storage->getQuery()
+      ->condition('name', 'root')
+      ->condition('vid', $vocab_name)
+      ->range(0, 1)
+      ->accessCheck(FALSE)
+      ->execute();
+    $root_tid = reset($root_term);
+    $media->media_directory->target_id = $root_tid;
+  }
+  else {
+    // If we have values, make sure the entire tree is stored.
+    $terms = $media->get('media_directory')->getValue();
+    $all_ancestors = [];
+    foreach ($terms as $term) {
+      $all_ancestors = array_merge($all_ancestors, array_keys($taxonomy_storage->loadAllParents($term['target_id'])));
+    }
+    // De-duplicate and rearrange that info in a format that field API likes.
+    $ancestors_field_value = array_map(function ($item) {
+      return ['target_id' => $item];
+    }, array_unique($all_ancestors));
+    // @todo How deep should we go into preventing broken data? For example, we
+    // could loop through the ancestors and make sure there are no parallel
+    // branches, etc. This would only happen if 1) There is a bug in the widget
+    // code, or 2) if someone is doing nasty stuff programmatically, so maybe
+    // we shouldn't need to worry too much.
+    $media->media_directory = $ancestors_field_value;
+  }
+}

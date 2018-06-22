@@ -1,0 +1,7 @@
+media_directory.settings.form:
+  path: '/admin/config/media/media-directory'
+  defaults:
+    _form: '\Drupal\media_directory\Form\MediaDirectorySettingsForm'
+    _title: 'Media Directory Settings'
+  requirements:
+    _permission: 'administer media'

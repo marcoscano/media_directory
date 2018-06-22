@@ -1,0 +1,5 @@
+media_directory.configuration_form:
+  title: 'Media Directory Settings'
+  parent: system.admin_config_media
+  description: 'Configure Media Directory'
+  route_name: media_directory.settings.form

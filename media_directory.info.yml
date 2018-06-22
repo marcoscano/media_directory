@@ -1,0 +1,9 @@
+name: 'Media Directory'
+type: module
+description: 'Allows to organize your Media assets in a directory-like taxonomy structure.'
+package: Media
+core: 8.x
+
+dependencies:
+  - drupal:media
+  - drupal:taxonomy
