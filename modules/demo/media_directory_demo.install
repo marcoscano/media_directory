@@ -1,0 +1,62 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the media_directory_demo module.
+ */
+
+use Drupal\media_directory\Form\MediaDirectorySettingsForm;
+
+/**
+ * Implements hook_install().
+ */
+function media_directory_demo_install() {
+  // Create some sample terms.
+  /** @var \Drupal\taxonomy\VocabularyInterface $vocabulary */
+  $vocabulary = \Drupal::entityTypeManager()->getStorage('taxonomy_vocabulary')->load('media_directory_tree');
+  if (empty($vocabulary)) {
+    return;
+  }
+  $term_storage = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
+  $root_term = $term_storage->getQuery()
+    ->condition('name', 'root')
+    ->condition('vid', $vocabulary->id())
+    ->range(0, 1)
+    ->accessCheck(FALSE)
+    ->execute();
+  $root_tid = reset($root_term);
+  // Create 3 children of the root term.
+  $term1 = $term_storage->create([
+    'name' => 'Directory 1',
+    'vid' => $vocabulary->id(),
+    'parent' => $root_tid,
+  ]);
+  $term1->save();
+  $term2 = $term_storage->create([
+    'name' => 'Directory 2',
+    'vid' => $vocabulary->id(),
+    'parent' => $root_tid,
+  ]);
+  $term2->save();
+  $term3 = $term_storage->create([
+    'name' => 'Directory 3',
+    'vid' => $vocabulary->id(),
+    'parent' => $root_tid,
+  ]);
+  $term3->save();
+  // Let each subdirectory have children too.
+  $i = 0;
+  foreach ([$term1, $term2, $term3] as $term) {
+    $i++;
+    $child = $term_storage->create([
+      'name' => 'Subdirectory ' . $i,
+      'vid' => $vocabulary->id(),
+      'parent' => $term->id(),
+    ]);
+    $child->save();
+  }
+
+  // Create / configure the fields on the media types.
+  MediaDirectorySettingsForm::configureMediaTypeField('file', 'media_directory_tree');
+  MediaDirectorySettingsForm::configureMediaTypeField('image', 'media_directory_tree');
+}

@@ -161,7 +161,7 @@ class MediaDirectorySettingsForm extends ConfigFormBase {
       // If this is a non-empty vocab (i.e. this media type is being set to
       // use a vocabulary, configure also the field on the type to do so.
       if (!empty($vocab)) {
-        if (!$this->configureMediaTypeField($type, $vocab)) {
+        if (!self::configureMediaTypeField($type, $vocab)) {
           $this->messenger()->addError($this->t('Could not configure the field "media_directory" on type @type', [
             '@type' => $type,
           ]));
@@ -192,6 +192,10 @@ class MediaDirectorySettingsForm extends ConfigFormBase {
    * vocabulary passed in. Will also update the media form display so that this
    * field uses the correct widget.
    *
+   * @todo It's awkward to have this static method here. If we don't need the
+   * demo module make this a normal protected method. Or move this altogether
+   * to its own service.
+   *
    * @param string $type_name
    *   The media type machine name.
    * @param string $vocab_name
@@ -200,21 +204,21 @@ class MediaDirectorySettingsForm extends ConfigFormBase {
    * @return bool
    *   TRUE if could configure the field properly, or FALSE otherwise.
    */
-  protected function configureMediaTypeField($type_name, $vocab_name) {
+  public static function configureMediaTypeField($type_name, $vocab_name) {
     // The type must exist.
-    $type = $this->entityTypeManager->getStorage('media_type')->load($type_name);
+    $type = \Drupal::entityTypeManager()->getStorage('media_type')->load($type_name);
     if (!$type) {
       return FALSE;
     }
 
     // The vocabulary must exist.
-    $vocab = $this->entityTypeManager->getStorage('taxonomy_vocabulary')->load($vocab_name);
+    $vocab = \Drupal::entityTypeManager()->getStorage('taxonomy_vocabulary')->load($vocab_name);
     if (!$vocab) {
       return FALSE;
     }
 
     /** @var \Drupal\media\Entity\MediaType $type */
-    $field_definitions = $this->entityFieldManager->getFieldDefinitions('media', $type_name);
+    $field_definitions = \Drupal::service('entity_field.manager')->getFieldDefinitions('media', $type_name);
     if (!empty($field_definitions['media_directory'])) {
       // Just double-check this field is properly configured.
       /** @var \Drupal\field\Entity\FieldConfig $media_directory_field */
@@ -222,7 +226,7 @@ class MediaDirectorySettingsForm extends ConfigFormBase {
       $handler_settings = $media_directory_field->getSetting('handler_settings');
       $target_bundles = $handler_settings['target_bundles'];
       if (count($target_bundles) != 1) {
-        $this->messenger()->addError($this->t('A misconfigured "media_directory" field was detected on type @type.', [
+        \Drupal::messenger()->addError(t('A misconfigured "media_directory" field was detected on type @type.', [
           '@type' => $type_name,
         ]));
         return FALSE;
@@ -232,7 +236,7 @@ class MediaDirectorySettingsForm extends ConfigFormBase {
         $handler_settings['target_bundles'] = [$vocab_name => $vocab_name];
         $media_directory_field->setSetting('handler_settings', $handler_settings);
         $media_directory_field->save();
-        $this->messenger()->addStatus($this->t('The field "media_directory" on type @type was reconfigured to reference terms on the new vocabulary.', [
+        \Drupal::messenger()->addStatus(t('The field "media_directory" on type @type was reconfigured to reference terms on the new vocabulary.', [
           '@type' => $type->label(),
         ]));
       }
@@ -255,7 +259,7 @@ class MediaDirectorySettingsForm extends ConfigFormBase {
       }
       $field = FieldConfig::create([
         'field_storage' => $field_storage,
-        'label' => $this->t('Directory tree'),
+        'label' => t('Directory tree'),
         'bundle' => $type_name,
         'required' => TRUE,
         'settings' => [

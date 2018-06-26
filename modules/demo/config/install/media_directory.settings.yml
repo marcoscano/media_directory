@@ -1,0 +1,5 @@
+media_directory_vocabulary_mapping:
+  - 'audio:'
+  - 'file:media_directory_tree'
+  - 'image:media_directory_tree'
+  - 'video:'

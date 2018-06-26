@@ -1,0 +1,8 @@
+name: 'Media Directory Demo'
+type: module
+description: 'Example module for the Media Directory functionality.'
+package: Media
+core: 8.x
+
+dependencies:
+  - media_directory:media_directory
