@@ -1,0 +1,26 @@
+directory_widget:
+  js:
+    js/media_directory.directory_widget.js: {}
+  css:
+    theme:
+      css/media_directory.directory_widget.css: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/drupalSettings
+    - core/drupal.ajax
+    - media_directory/jstree
+
+jstree:
+  remote: https://github.com/vakata/jstree
+  license:
+    name: MIT
+    url: https://github.com/vakata/jstree/
+    gpl-compatible: true
+  js:
+    /libraries/jstree/dist/jstree.min.js: { minified: true }
+  css:
+    theme:
+      /libraries/jstree/dist/themes/default/style.min.css: { minified: true }
+  dependencies:
+    - core/jquery

@@ -6,6 +6,24 @@
  */
 
 /**
+ * Implements hook_requirements().
+ */
+function media_directory_requirements($phase) {
+  $requirements = [];
+
+  $jstree_path = DRUPAL_ROOT . '/libraries/jstree/dist/jstree.min.js';
+  if (!file_exists($jstree_path)) {
+    $requirements['jstree'] = [
+      'title' => t('JsTree library missing'),
+      'description' => t('The Media Directory module requires the JsTree library. Download the latest release from <em>https://github.com/vakata/jstree</em> releases and place it in <em>/libraries</em>.'),
+      'severity' => REQUIREMENT_ERROR,
+    ];
+  }
+
+  return $requirements;
+}
+
+/**
  * Implements hook_install().
  */
 function media_directory_install() {
